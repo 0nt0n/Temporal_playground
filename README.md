@@ -1,104 +1,70 @@
-# Temporal agent playground (Python)
+# Temporal — минимальное демо
 
-A minimal, runnable sandbox that shows why Temporal is interesting for our
-core agent. Your agent loop becomes a **Workflow**; LLM / tool / `opencode`
-calls become **Activities**. Runs with **zero secrets** (the LLM is mocked,
-`opencode` has a fallback), so you can clone and go.
+Самая база: workflow из четырёх шагов, каждый шаг — Activity.
+Главный фокус — **durable execution**: если убить процесс посреди работы,
+после перезапуска выполнение продолжится с того места, где остановилось.
 
-> Not for the repo — this is the scratch playground Терентьев asked for.
+## Файлы
 
-## What it demonstrates
+| Файл | Что делает |
+|------|------------|
+| `workflow.py` | Оркестрация: цикл по шагам. Детерминированный код, без I/O |
+| `activities.py` | Одна Activity `do_step` — сюда идёт всё «грязное» (пока просто заглушка со sleep) |
+| `worker.py` | Worker — процесс, который выполняет workflow и activities |
+| `starter.py` | Запускает один workflow и печатает результат |
 
-1. **Durable execution** — kill the worker mid-run, restart it, the agent
-   resumes from the last finished step. No re-running completed LLM calls.
-2. **No Postgres state table** — loop position + every intermediate result
-   live in Temporal's Event History, not in a `states` table you maintain.
-3. **Human-in-the-loop** — a "risky" step pauses until an `approve` signal.
-4. **CLI integration** — a step is routed to the `opencode` CLI from inside
-   an Activity (the pattern for wiring any CLI/agent into Temporal).
+## Как запустить
 
-## Files
+Нужны три терминала.
 
-| file | role |
-|------|------|
-| `workflow.py`   | the agent loop — deterministic orchestration only |
-| `activities.py` | LLM call + `opencode` call — the side effects |
-| `worker.py`     | hosts & runs the code (kill this to simulate a crash) |
-| `starter.py`    | kicks off one run |
-| `approve.py`    | sends the human approval signal |
-| `shared.py`     | dataclasses passed across boundaries |
-
-## Run it
-
-**1. Start a local Temporal server** (recommended path — the Temporal CLI):
+**1. Temporal-сервер** (если ещё не установлен: `brew install temporal`):
 
 ```bash
-# install the CLI once
-curl -sSf https://temporal.download/cli.sh | sh   # or: brew install temporal
-# then:
 temporal server start-dev
 ```
 
-This gives you the server on `localhost:7233` and the Web UI on
-`http://localhost:8233`. (Alternative self-hosted / Docker stack for a more
-"bank-like" setup: github.com/temporalio/docker-compose.)
+Web UI будет на http://localhost:8233 — там видно все workflow и их историю.
 
-**2. Install deps & start the worker:**
+**2. Worker:**
 
 ```bash
 pip install -r requirements.txt
 python worker.py
 ```
 
-**3. In a second terminal, start a run:**
+**3. Запуск workflow:**
 
 ```bash
 python starter.py
 ```
 
-It will process a few steps, then **pause** at the `[approval]` step.
+В терминале worker'а появятся строки `выполняю шаг: ...`,
+а starter в конце напечатает результаты всех шагов.
 
-**4. Approve it (third terminal, or reuse):**
+## Главный фокус: восстановление после падения
 
-```bash
-python approve.py          # or: python approve.py false   (to reject)
-```
+1. Запусти `python starter.py`.
+2. Когда worker выполнит 1–2 шага — убей его (**Ctrl+C** в терминале worker'а).
+3. Запусти worker снова: `python worker.py`.
 
-## The crash demo (the money shot for the talk)
+Workflow продолжится **со следующего шага** — уже выполненные шаги
+не запустятся заново (строка `выполняю шаг` для них не напечатается,
+результаты возьмутся из Event History). Ни одной строчки кода для
+восстановления состояния писать не пришлось — это и есть durable execution.
 
-1. `python starter.py`
-2. Watch the worker log `🔵 [ACTIVITY call_llm] EXECUTING` for the first steps.
-3. **Ctrl+C the worker** after a step or two.
-4. Restart it: `python worker.py`
-5. Notice the already-completed steps do **not** print `EXECUTING` again —
-   their results are replayed from history; the agent continues where it
-   stopped. Open the Web UI to see the full Event History for `agent-demo-1`.
+> Повторный запуск `starter.py` с тем же `id="agent-demo-1"` упадёт,
+> пока предыдущий workflow не завершился — id должен быть уникальным.
+> Либо дождись завершения, либо поменяй id.
 
-## How this maps to our orchestrator
+## Что навешивать дальше
 
-| Today (rough) | With Temporal |
-|---------------|---------------|
-| `states` table in PG, hand-written | Event History (durable, automatic) |
-| custom retry / backoff code | `RetryPolicy` per Activity |
-| cron / poller to resume stuck jobs | automatic replay on worker restart |
-| ad-hoc "waiting for approval" flags | Signals + `wait_condition` |
-| bespoke status endpoint reading PG | Queries |
+По одной фиче за раз:
 
-## Next steps (Phase 4)
+- **Retry policy** — автоповтор упавшей Activity с backoff;
+- **Signal** — human-in-the-loop: workflow ждёт одобрения человека;
+- **Query** — посмотреть прогресс живого workflow без БД;
+- **Реальный LLM** — заменить заглушку в `do_step` на вызов модели;
+- **Heartbeat** — для долгих activities;
+- **Child Workflow / Continue As New** — длинные цепочки задач.
 
-- Swap the mock in `activities.py` for a real model (one block, marked in code).
-- Try the official **Temporal ↔ LangGraph** plugin (preview) — it lets you drop
-  external checkpointers (PG/Redis) entirely, since Temporal owns durability.
-  `pip install "temporalio[langgraph]"`, samples in `temporalio/samples-python`.
-- For `opencode`, compare shelling out (`opencode run`) vs. driving
-  `opencode serve` over its HTTP API from the Activity.
-
-## Known gotchas to mention in the talk
-
-- Workflow code must be **deterministic** (no I/O, no random, no wall-clock);
-  everything non-deterministic goes in Activities.
-- Changing workflow code for **in-flight** runs needs Worker Versioning /
-  patching — plan for it before production.
-- Porting a very dynamic agent's routing straight into Temporal can feel
-  verbose; the common answer is LangGraph (reasoning) *on top of* Temporal
-  (durability), not one replacing the other.
+Контекст исследования — в [gide.md](gide.md).
