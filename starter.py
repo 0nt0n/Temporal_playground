@@ -5,8 +5,10 @@ from temporalio.client import Client
 from workflow import AgentWorkflow
 from worker import TASK_QUEUE
 
+# в последующем переделать под что-то более серьезное 
 
 async def main() -> None:
+    """Функция для прогона всего нашего воркфлоу"""
     client = await Client.connect("localhost:7233")
 
     handle = await client.start_workflow(

@@ -10,6 +10,7 @@ TASK_QUEUE = "agent-demo"
 
 
 async def main() -> None:
+    """Воркер,который выполняет мой воркфлоу и ждет задачи"""
     client = await Client.connect("localhost:7233")
     worker = Worker(
         client,
@@ -18,7 +19,7 @@ async def main() -> None:
         activities=[do_step],
     )
     print("worker запущен")
-    await worker.run()
+    await worker.run() # ожидаем завершения работы
 
 
 if __name__ == "__main__":

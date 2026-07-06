@@ -10,6 +10,7 @@ with workflow.unsafe.imports_passed_through():
 class AgentWorkflow:
     @workflow.run
     async def run(self, steps: list[str]) -> list[str]:
+        """Функция для выполнения списка шагов"""
         results = []
         for step in steps:
             result = await workflow.execute_activity(
