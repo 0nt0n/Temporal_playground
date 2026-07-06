@@ -1,26 +1,21 @@
 import asyncio
-
+import uuid
 from temporalio.client import Client
+from shared import TaskInput
 
-from workflow import AgentWorkflow
-from worker import TASK_QUEUE
 
-# в последующем переделать под что-то более серьезное 
-
-async def main() -> None:
-    """Функция для прогона всего нашего воркфлоу"""
+async def main():
     client = await Client.connect("localhost:7233")
-
-    handle = await client.start_workflow(
-        AgentWorkflow.run,
-        ["шаг 1: анализ", "шаг 2: генерация", "шаг 3: тесты", "шаг 4: публикация"],
-        id="agent-demo-1",
-        task_queue=TASK_QUEUE,
+    result = await client.execute_workflow(
+        "ExecuteTaskWorkflow",
+        TaskInput(
+            task_id=str(uuid.uuid4()),
+            command="echo Hello",
+        ),
+        id=f"say-hello-workflow-{uuid.uuid4()}",
+        task_queue="my-task-queue",
     )
-    print(f"workflow {handle.id} запущен, ждём результат")
-
-    for line in await handle.result():
-        print(" -", line)
+    print("Workflow result:", result)
 
 
 if __name__ == "__main__":

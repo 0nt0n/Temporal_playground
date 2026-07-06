@@ -1,25 +1,25 @@
 import asyncio
-
 from temporalio.client import Client
 from temporalio.worker import Worker
-
-from activities import do_step
-from workflow import AgentWorkflow
-
-TASK_QUEUE = "agent-demo"
+from temporalio import workflow
 
 
-async def main() -> None:
-    """Воркер,который выполняет мой воркфлоу и ждет задачи"""
+with workflow.unsafe.imports_passed_through():
+    from activity import run_cli
+    from workflow import ExecuteTaskWorkflow
+
+
+async def main():
     client = await Client.connect("localhost:7233")
     worker = Worker(
         client,
-        task_queue=TASK_QUEUE,
-        workflows=[AgentWorkflow],
-        activities=[do_step],
+        task_queue="my-task-queue",
+        workflows=[ExecuteTaskWorkflow],
+        activities=[run_cli],
     )
-    print("worker запущен")
-    await worker.run() # ожидаем завершения работы
+    print("!!! Воркер запустился !!!")
+
+    await worker.run()
 
 
 if __name__ == "__main__":

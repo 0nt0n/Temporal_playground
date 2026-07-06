@@ -1,22 +1,20 @@
+from temporalio import workflow
 from datetime import timedelta
 
-from temporalio import workflow
 
 with workflow.unsafe.imports_passed_through():
-    from activities import do_step
+    from activity import run_cli
+    from shared import TaskInput
 
 
 @workflow.defn
-class AgentWorkflow:
+class ExecuteTaskWorkflow:
+    """Чуть позже добавить логи(посмотреть в документации)"""
+
     @workflow.run
-    async def run(self, steps: list[str]) -> list[str]:
-        """Функция для выполнения списка шагов"""
-        results = []
-        for step in steps:
-            result = await workflow.execute_activity(
-                do_step,
-                step,
-                start_to_close_timeout=timedelta(seconds=30),
-            )
-            results.append(result)
-        return results
+    async def run(self, task: TaskInput) -> str:
+        return await workflow.execute_activity(
+            run_cli,
+            task,
+            start_to_close_timeout=timedelta(10),
+        )
