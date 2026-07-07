@@ -10,7 +10,7 @@ with workflow.unsafe.imports_passed_through():
 
 @workflow.defn
 class ExecuteTaskWorkflow:
-    """Чуть позже добавить логи(посмотреть в документации)"""
+    """Чуть позже добавить логи (посмотреть в документации)"""
 
     @workflow.run
     async def run(self, task: TaskInput) -> str:
