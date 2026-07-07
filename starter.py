@@ -10,7 +10,7 @@ async def main():
         "ExecuteTaskWorkflow",
         TaskInput(
             task_id=str(uuid.uuid4()),
-            command="echo Hello",
+            command="exit 1",
         ),
         id=f"say-hello-workflow-{uuid.uuid4()}",
         task_queue="my-task-queue",

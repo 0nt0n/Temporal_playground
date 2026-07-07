@@ -1,7 +1,29 @@
+import asyncio
 from temporalio import activity
 from shared import TaskInput
 
 
+# необходимо внедрить cli opencode, те избавиться от заглушки
+
+# глянуть с lang плагин ...
+
+
 @activity.defn
 async def run_cli(task: TaskInput) -> str:
-    return f"id: {task.task_id},command: {task.command}"
+    proc = await asyncio.create_subprocess_shell(
+        task.command,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    while True:
+        try:
+            await asyncio.wait_for(proc.wait(), timeout=2)
+            break
+        except asyncio.TimeoutError:
+            activity.heartbeat("heartbeat details!")
+    stdout, stderr = await proc.communicate()
+
+    if proc.returncode == 0:
+        return stdout.decode()
+    else:
+        raise RuntimeError(stderr.decode())
