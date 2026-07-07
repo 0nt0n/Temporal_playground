@@ -17,7 +17,7 @@ class ExecuteTaskWorkflow:
         return await workflow.execute_activity(
             run_cli,
             task,
-            start_to_close_timeout=timedelta(seconds=60),
+            start_to_close_timeout=timedelta(minutes=5),
             heartbeat_timeout=timedelta(seconds=5),
             retry_policy=RetryPolicy(
                 maximum_attempts=3, initial_interval=timedelta(seconds=1)
