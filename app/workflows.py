@@ -4,8 +4,8 @@ from temporalio.common import RetryPolicy
 
 
 with workflow.unsafe.imports_passed_through():
-    from activity import run_cli
-    from shared import TaskInput
+    from app.activities import run_cli
+    from app.shared import TaskInput
 
 
 @workflow.defn

@@ -1,9 +1,6 @@
 import asyncio
 from temporalio import activity
-from shared import TaskInput
-
-
-# необходимо внедрить cli opencode, те избавиться от заглушки
+from app.shared import TaskInput
 
 # глянуть с lang плагин ...
 

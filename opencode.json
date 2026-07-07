@@ -1,0 +1,20 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "cloudru": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Cloud.ru Foundation Models",
+      "options": {
+        "baseURL": "https://foundation-models.api.cloud.ru/v1",
+        "apiKey": "{env:CLOUD_RU_API_KEY}"
+      },
+      "models": {
+        "openai/gpt-4o-mini": {
+          "name": "GPT-4o mini",
+          "limit": { "context": 128000, "output": 16000 }
+        }
+      }
+    }
+  },
+  "model": "cloudru/openai/gpt-4o-mini"
+}
