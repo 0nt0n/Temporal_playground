@@ -66,6 +66,26 @@ curl -X POST http://localhost:8000/run -H "Content-Type: application/json" \
   -d '{"task_id":"10","command":"opencode run \"напиши hello world на python\""}'
 ```
 
+Иллюстрация ретраев — команда всегда падает, Temporal делает 3 попытки,
+после чего workflow завершается с ошибкой (curl получит 500, а в UI на
+http://localhost:8233 в истории workflow `task-retry-demo` видны все попытки):
+
+```bash
+curl -X POST http://localhost:8000/run \
+  -H "Content-Type: application/json" \
+  -d '{"task_id": "retry-demo", "command": "exit 1"}'
+```
+
+Durable execution — запусти долгую задачу, во время её выполнения убей worker
+(Ctrl+C во втором терминале) и запусти его снова (`python -m app.worker`):
+задача переназначится на новый worker и curl дождётся результата:
+
+```bash
+curl -X POST http://localhost:8000/run \
+  -H "Content-Type: application/json" \
+  -d '{"task_id": "kill-demo", "command": "sleep 40"}'
+```
+
 ## Docker
 
 ```bash
