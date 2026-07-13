@@ -11,3 +11,9 @@ class TaskRequest(BaseModel):
 class TaskInput:
     task_id: str
     command: str
+
+
+@dataclass
+class StepResult:
+    output: str
+    status: str

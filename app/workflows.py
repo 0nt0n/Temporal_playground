@@ -4,22 +4,27 @@ from temporalio.common import RetryPolicy
 
 
 with workflow.unsafe.imports_passed_through():
-    from app.activities import run_cli
+    from app.activities import agent_step
     from app.shared import TaskInput
 
 
 @workflow.defn
-class ExecuteTaskWorkflow:
-    """Чуть позже добавить логи (посмотреть в документации)"""
-
+class AgentWorkflow:
     @workflow.run
-    async def run(self, task: TaskInput) -> str:
-        return await workflow.execute_activity(
-            run_cli,
-            task,
-            start_to_close_timeout=timedelta(minutes=5),
-            heartbeat_timeout=timedelta(seconds=5),
-            retry_policy=RetryPolicy(
-                maximum_attempts=3, initial_interval=timedelta(seconds=1)
-            ),
-        )
+    async def run(self, task: TaskInput) -> list[str]:
+        history: list[str] = []
+        max_steps = 5
+
+        for i in range(max_steps):
+            step = await workflow.execute_activity(
+                agent_step,
+                args=[task, history],
+                start_to_close_timeout=timedelta(minutes=2),
+                retry_policy=RetryPolicy(maximum_attempts=3),
+            )
+            history.append(step.output)
+
+            if step.status == "done":
+                break
+
+        return history
