@@ -6,7 +6,7 @@ from temporalio import workflow
 
 
 with workflow.unsafe.imports_passed_through():
-    from app.activities import run_cli
+    from app.activities import agent_cli, agent_cli_review
     from app.workflows import ExecuteTaskWorkflow
 
 
@@ -17,7 +17,7 @@ async def main():
         client,
         task_queue="my-task-queue",
         workflows=[ExecuteTaskWorkflow],
-        activities=[run_cli],
+        activities=[agent_cli, agent_cli_review],
     )
     await worker.run()
 

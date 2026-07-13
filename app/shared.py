@@ -14,6 +14,12 @@ class TaskInput:
 
 
 @dataclass
-class StepResult:
+class AgentResult:
     output: str
-    status: str
+    artifacts: list[str]
+
+
+@dataclass
+class WorkflowResult:
+    message: str
+    artifacts: list[str]
