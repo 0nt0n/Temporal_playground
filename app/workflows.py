@@ -11,7 +11,7 @@ RETRY_POLICY = RetryPolicy(maximum_attempts=3, initial_interval=timedelta(second
 
 @workflow.defn
 class ExecuteTaskWorkflow:
-
+    """Сделать ветвление """
     @workflow.run
     async def run(self, task: TaskInput) -> WorkflowResult:
         result = await workflow.execute_activity(

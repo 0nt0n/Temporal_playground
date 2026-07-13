@@ -103,7 +103,9 @@ async def agent_cli(task: TaskInput) -> AgentResult:
     prompt = f"{SYSTEM_PROMPT}\n\nЗадача пользователя:\n{task.command}"
 
     proc = await asyncio.create_subprocess_exec(
-        "opencode", "run", prompt,
+        "opencode",
+        "run",
+        prompt,
         cwd=workspace,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
@@ -139,7 +141,9 @@ async def agent_cli_review(task: TaskInput) -> AgentResult:
         prompt += f"\n\nДополнительные указания пользователя:\n{task.command}"
 
     proc = await asyncio.create_subprocess_exec(
-        "opencode", "run", prompt,
+        "opencode",
+        "run",
+        prompt,
         cwd=workspace,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
