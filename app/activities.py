@@ -2,6 +2,8 @@ import asyncio
 import os
 from minio import Minio
 from temporalio import activity
+
+from app import config
 from app.shared import TaskInput, AgentResult
 
 SYSTEM_PROMPT = (
@@ -39,14 +41,12 @@ async def _wait_with_heartbeat(awaitable, message: str = "working"):
 
 def connect_to_minio():
     client = Minio(
-        os.getenv("MINIO_ENDPOINT", "localhost:9000"),
-        access_key=os.getenv("MINIO_ACCESS_KEY"),
-        secret_key=os.getenv("MINIO_SECRET_KEY"),
-        secure=os.getenv("MINIO_SECURE", "false") == "true",
+        config.MINIO_ENDPOINT,
+        access_key=config.MINIO_ACCESS_KEY,
+        secret_key=config.MINIO_SECRET_KEY,
+        secure=config.MINIO_SECURE,
     )
-    bucket = os.getenv("MINIO_BUCKET", "artifacts")
-
-    return client, bucket
+    return client, config.MINIO_BUCKET
 
 
 def _upload_workspace(workspace: str, task_id: str) -> list[str]:
