@@ -1,9 +1,7 @@
 import asyncio
 import os
-from minio import Minio
 from temporalio import activity
 
-from app import config
 from app.shared import TaskInput, AgentResult
 
 SYSTEM_PROMPT = (
@@ -29,6 +27,10 @@ REVIEW_PROMPT = (
 )
 
 
+def _workspace_path(task_id: str) -> str:
+    return f"/tmp/workspace/{task_id}"
+
+
 async def _wait_with_heartbeat(awaitable, message: str = "working"):
     """Ждёт awaitable, каждые 2 секунды отправляя heartbeat."""
     task = asyncio.ensure_future(awaitable)
@@ -39,65 +41,18 @@ async def _wait_with_heartbeat(awaitable, message: str = "working"):
             activity.heartbeat(message)
 
 
-def connect_to_minio():
-    client = Minio(
-        config.MINIO_ENDPOINT,
-        access_key=config.MINIO_ACCESS_KEY,
-        secret_key=config.MINIO_SECRET_KEY,
-        secure=config.MINIO_SECURE,
-    )
-    return client, config.MINIO_BUCKET
-
-
-def _upload_workspace(workspace: str, task_id: str) -> list[str]:
-    """Загружает все файлы из workspace в MinIO, возвращает ключи объектов"""
-    client, bucket = connect_to_minio()
-
-    if not client.bucket_exists(bucket):
-        client.make_bucket(bucket)
-
-    uploaded = []
+def _list_workspace(workspace: str) -> list[str]:
+    """Возвращает пути всех файлов в workspace."""
+    files = []
     for root, _, filenames in os.walk(workspace):
         for name in filenames:
-            local_path = os.path.join(root, name)
-            relative_path = os.path.relpath(local_path, workspace)
-            object_name = f"tasks/{task_id}/{relative_path}"
-            client.fput_object(bucket, object_name, local_path)
-            uploaded.append(object_name)
-    return uploaded
-
-
-def _download_workspace(task_id: str, workspace: str) -> list[str]:
-    """Скачивает все артефакты задачи из MinIO в workspace"""
-    client, bucket = connect_to_minio()
-    prefix = f"tasks/{task_id}/"
-
-    downloaded = []
-    for obj in client.list_objects(bucket, prefix=prefix, recursive=True):
-        relative_path = obj.object_name.removeprefix(prefix)
-        local_path = os.path.join(workspace, relative_path)
-        client.fget_object(bucket, obj.object_name, local_path)
-        downloaded.append(local_path)
-
-    if not downloaded:
-        raise FileNotFoundError(f"в MinIO нет артефактов задачи {task_id}")
-    return downloaded
-
-
-def _upload_file(local_path: str, object_name: str) -> str:
-    """Загружает один файл в MinIO, возвращает ключ объекта."""
-    client, bucket = connect_to_minio()
-
-    if not client.bucket_exists(bucket):
-        client.make_bucket(bucket)
-
-    client.fput_object(bucket, object_name, local_path)
-    return object_name
+            files.append(os.path.join(root, name))
+    return files
 
 
 @activity.defn
 async def agent_cli(task: TaskInput) -> AgentResult:
-    workspace = f"/tmp/workspace/{task.task_id}"
+    workspace = _workspace_path(task.task_id)
     os.makedirs(workspace, exist_ok=True)
 
     prompt = f"{SYSTEM_PROMPT}\n\nЗадача пользователя:\n{task.command}"
@@ -117,24 +72,15 @@ async def agent_cli(task: TaskInput) -> AgentResult:
 
     answer = stdout.decode()
 
-    artifacts = await _wait_with_heartbeat(
-        asyncio.to_thread(_upload_workspace, workspace, task.task_id),
-        message="uploading artifacts",
-    )
-
-    return AgentResult(answer, artifacts)
+    return AgentResult(answer, _list_workspace(workspace))
 
 
 @activity.defn
 async def agent_cli_review(task: TaskInput) -> AgentResult:
-    """Скачивает артефакты задачи, делает ревью кода и грузит заметки в MinIO."""
-    workspace = f"/tmp/workspace/{task.task_id}-review"
-    os.makedirs(workspace, exist_ok=True)
-
-    await _wait_with_heartbeat(
-        asyncio.to_thread(_download_workspace, task.task_id, workspace),
-        message="downloading artifacts",
-    )
+    """Делает ревью кода в workspace задачи, заметки кладёт в REVIEW.md."""
+    workspace = _workspace_path(task.task_id)
+    if not os.path.isdir(workspace) or not _list_workspace(workspace):
+        raise FileNotFoundError(f"нет артефактов задачи {task.task_id}")
 
     prompt = REVIEW_PROMPT
     if task.command:
@@ -159,10 +105,4 @@ async def agent_cli_review(task: TaskInput) -> AgentResult:
     with open(review_path, "w") as f:
         f.write(review)
 
-    object_name = f"tasks/{task.task_id}/review/REVIEW.md"
-    await _wait_with_heartbeat(
-        asyncio.to_thread(_upload_file, review_path, object_name),
-        message="uploading review",
-    )
-
-    return AgentResult(review, [object_name])
+    return AgentResult(review, [review_path])

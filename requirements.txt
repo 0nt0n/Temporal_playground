@@ -37,4 +37,3 @@ typing_extensions==4.16.0
 urllib3==2.7.0
 uvicorn==0.50.2
 websockets==16.0
-minio==7.2.20
