@@ -64,8 +64,8 @@ Dockerfile             общий образ для worker и api
 # 1. Temporal-сервер (UI на http://localhost:8233)
 temporal server start-dev
 
-# 2. Worker — с переменными из .env
-set -a && source .env && set +a && python -m app.worker
+# 2. Worker (.env подхватывается автоматически)
+python -m app.worker
 
 # 3. API (Swagger на http://localhost:8000/docs)
 uvicorn app.api:app --port 8000
